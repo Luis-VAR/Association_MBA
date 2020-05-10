@@ -1,0 +1,84 @@
+---
+title: "Report"
+author: "Luis Varela"
+date: "25 4 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#libraries needed
+library(arules)
+library(arulesViz)
+library(knitr)
+```
+
+
+```{r cars}
+#reading the transaction file. There was an error "incomplete final line found on 'Data/ElectronidexTransactions2017.csv" fixed by
+#opening the csv file in the editor and pressing <enter>
+transaction_list <- read.transactions("Data/ElectroIndexTrans2017.csv", 
+                                      format = "basket", 
+                                      sep=",", 
+                                      rm.duplicates=TRUE)
+
+#load product categories list
+itemIndex <- read.csv("Data/ItemIndex.csv", sep=",")
+
+#add level1 to categories our products
+transaction_list@itemInfo$level1 <- itemIndex$ProductCategory
+
+#summary of the df
+summary(transaction_list)
+
+#find item that was consumed alone
+oneItem <- transaction_list[which(size(transaction_list) == 1), ] 
+oneItem
+
+#remove "" from the transaction list to avoid it giving us wrong results 
+transaction_list@itemInfo$labels <- gsub("\"","",transaction_list@itemInfo$labels)
+```
+
+
+#Observations
+
+*the density was 0.035 means 3.5% are non zero matrix cells
+*the matrix has 9835 times 125, i.e. 1229375 cells. So, if we want to know how many items were bought, we have 9835 times 125 times 0.03506172 it gives us that 43104 items were bought
+*Average transaction contained 43104/9835 = 4,38 items
+*The first quartile and median purchase size are 2 and 3 items respectively, implying that 25 percent of transactions contained two or fewer items and about half contained around three items
+*2163 items were consumed alone
+
+
+```{r cars}
+#inspecting the first 20 transactions
+inspect(transaction_list[1:20])
+
+#lists items on transaction files
+itemLabels(transaction_list) # We have 249 different items
+
+#item frequency with a 0.1 support
+itemFrequencyPlot(transaction_list, support=0.1)
+
+#item frequency with a 0.5 support
+itemFrequencyPlot(transaction_list, support=0.05)
+
+#plot frequency of each item (absolute)
+itemFrequencyPlot(transaction_list, topN=10, main='Absolute Item Frequency Plot', type="absolute", ylab="Item Frequency (Absolute)")
+
+#visualizing random 100 transactions
+image(sample(transaction_list, 100))
+```
+
+
+```{r}
+#using the Apriori alg. with sup at 0.01 and conf at 0.4
+purchaseRules <-
+  apriori(transaction_list,
+          parameter = list(
+            sup = 0.01,
+            conf = 0.4,
+            minlen = 2,
+            target = "rules"
+          ))
+purchaseRules
+```
+
