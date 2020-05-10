@@ -1,19 +1,40 @@
 ---
-title: "Report"
+title:  "Report"
 author: "Luis Varela"
-date: "25 4 2020"
+date:   "25 4 2020"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+
+<div style="margin-bottom:100px;">
+</div>
+
+<h2 style="text-align: center;">Introduction</h2>
+
+<p style="text-align: justify;">On this report, profitability of (a) certain article(s) will be demonstrated. The df for the task consists of 80 observations, from a df of existing products and 24 of a list of possible candidates.</p>
+
+<div style="margin-bottom:100px;">
+</div>
+
+<h2 style="text-align: center;">Used Libraries</h2>
+
+
+```{r results='asis', warning=FALSE, message=FALSE}
 #libraries needed
 library(arules)
 library(arulesViz)
 library(knitr)
+library(ggplot2)
 ```
 
 
-```{r cars}
+<div style="margin-bottom:100px;">
+</div>
+
+<h2 style="text-align: center;">Data</h2>
+
+
+```{r results='markup', fig.align='center', out.extra='angle=90', message=FALSE}
 #reading the transaction file. There was an error "incomplete final line found on 'Data/ElectronidexTransactions2017.csv" fixed by
 #opening the csv file in the editor and pressing <enter>
 transaction_list <- read.transactions("Data/ElectroIndexTrans2017.csv", 
@@ -35,50 +56,193 @@ oneItem <- transaction_list[which(size(transaction_list) == 1), ]
 oneItem
 
 #remove "" from the transaction list to avoid it giving us wrong results 
-transaction_list@itemInfo$labels <- gsub("\"","",transaction_list@itemInfo$labels)
+transaction_list@itemInfo$labels <- gsub("\"", "", transaction_list@itemInfo$labels)
 ```
 
 
-#Observations
+## Observations
 
-*the density was 0.035 means 3.5% are non zero matrix cells
-*the matrix has 9835 times 125, i.e. 1229375 cells. So, if we want to know how many items were bought, we have 9835 times 125 times 0.03506172 it gives us that 43104 items were bought
-*Average transaction contained 43104/9835 = 4,38 items
-*The first quartile and median purchase size are 2 and 3 items respectively, implying that 25 percent of transactions contained two or fewer items and about half contained around three items
-*2163 items were consumed alone
+* the density was 0.035 means 3.5% are non zero matrix cells
+
+* the matrix has 9835 times 125, i.e. 1229375 cells. So, if we want to know how many items were bought, we have 9835 times 125 times 0.03506172 it gives us that 43104 items were bought
+
+* Average transaction contained 43104/9835 = 4,38 items
+
+* The first quartile and median purchase size are 2 and 3 items respectively, implying that 25 percent of transactions contained two or fewer items and about half contained around three items
+
+* 2163 items were consumed alone
 
 
-```{r cars}
-#inspecting the first 20 transactions
-inspect(transaction_list[1:20])
+<div style="margin-bottom:100px;">
+</div>
 
+<h2 style="text-align: center;">Analysis</h2>
+
+
+```{r message=FALSE, fig.align='center'}
 #lists items on transaction files
 itemLabels(transaction_list) # We have 249 different items
 
 #item frequency with a 0.1 support
-itemFrequencyPlot(transaction_list, support=0.1)
+itemFrequencyPlot(transaction_list, 
+                  support=0.1)
 
 #item frequency with a 0.5 support
-itemFrequencyPlot(transaction_list, support=0.05)
+itemFrequencyPlot(transaction_list, 
+                  support=0.05)
 
 #plot frequency of each item (absolute)
-itemFrequencyPlot(transaction_list, topN=10, main='Absolute Item Frequency Plot', type="absolute", ylab="Item Frequency (Absolute)")
+itemFrequencyPlot(transaction_list, 
+                  topN=10, 
+                  main='Absolute Item Frequency Plot', 
+                  type="absolute", 
+                  ylab="Item Frequency (Absolute)")
 
 #visualizing random 100 transactions
 image(sample(transaction_list, 100))
 ```
 
 
-```{r}
-#using the Apriori alg. with sup at 0.01 and conf at 0.4
-purchaseRules <-
-  apriori(transaction_list,
-          parameter = list(
-            sup = 0.01,
-            conf = 0.4,
-            minlen = 2,
-            target = "rules"
-          ))
-purchaseRules
+```{r, fig.align='center', out.extra='angle=90', message=FALSE}
+#using the Apriori alg. with support at 0.01 and confidence at 0.4. 
+#There will be other tryals to compare how changing one or the other affects the results
+purchaseRules <- apriori(transaction_list,
+                         parameter = list(sup = 0.01,
+                                          conf = 0.4,
+                                          minlen = 2,
+                                          target = "rules"))
+
+#inspect resulting rules
+inspect(head(purchaseRules, n = 10))
+
+#taking a closer look
+inspect(sort(purchaseRules, by = "lift", decreasing = TRUE)[1:10]) #interesting show of the association with HP Laptops
+
+#sorting by sonfidence
+inspect(sort(purchaseRules, by = "confidence", decreasing = TRUE)[1:10]) #interesting show of the association with HP Laptops
+
+#simple plot of the rules
+plot(purchaseRules, jitter = 0) #confidence remains high when support is low, this should be kept in mind
+
+#ploting rules
+plot(purchaseRules, col = c("red", "blue"), shading = "order", control = list(main = "Two-key plot"), jitter = 0)
 ```
 
+
+```{r results='markup', fig.align='center', out.extra='angle=90', message=FALSE}
+#checking how support and confidence affect the effectiveness of the rules
+differentConf <- read.csv("Data/differentConfidence.csv", sep=",")
+differentsupport <- read.csv("Data/differentSupport.csv", sep=",")
+
+#correlation between number of rules and support level
+ggplot(data = differentsupport, aes(x=min_support, y=number_rules)) + #the greater the number of rules the smaller the support
+      geom_point() +
+      geom_smooth(se=FALSE, color="Red") +
+      xlab("Mean Support") + 
+      ylab("Number of Rules") +
+      ggtitle("Mean Support against Rules found (confidence = 0.4)") +
+      theme_light()
+
+#correlation between number of rules and confidence level
+ggplot(data = differentConf, aes(x=minimum_confidence, y=number_rules)) + #the more rules we have the least confidence we would get
+      geom_point() +
+      geom_smooth(se=FALSE, color="Red") +
+      xlab("Mean Confidence") + 
+      ylab("Number of Rules") +
+      ggtitle("Mean Confidence against Rules found (support = 0.01)") +
+      theme_light()
+```
+
+
+```{r, set-options, message=FALSE, fig.align='center', cache=FALSE}
+options(witdh = 2600)
+#here is where there will be a bridge between this excercise and the last one
+#I found that only 3 product types make the cut generating 336 rules
+tempDesktop <- c("iMac", "Dell Desktop", "Lenovo Desktop Computer")
+tempLaptop <- c("HP Laptop")
+tempMonitors <- c("ViewSonic Monitor")
+
+#running Apriori to find out how many rules we have
+rulesAll <- apriori(transaction_list, parameter = list(sup = 0.005, 
+                                          conf = 0.4, 
+                                          minlen = 2, 
+                                          maxlen = 20))
+
+#subsetting rules with a where people are more likely to close their purchase + a Desktop
+ruleDesktop <- subset(rulesAll, subset = rhs %in% tempDesktop)
+
+#removing redundant rules
+ruleDesktop <- ruleDesktop[!is.redundant(ruleDesktop)] #10 rules were found to be redundat
+summary(ruleDesktop)
+
+#top 15 support/conf/lift
+inspect(sort(ruleDesktop, decreasing = TRUE, by = "support")[1:15])
+inspect(sort(ruleDesktop, decreasing = TRUE, by = "confidence")[1:15])
+inspect(sort(ruleDesktop, decreasing = TRUE, by = "lift")[1:15])
+
+#subsetting rules with a where people are more likely to close their purchase + a Laptop
+ruleLaptop <- subset(rulesAll, subset = rhs %in% tempLaptop)
+
+#remove redundant rules
+ruleLaptop <- ruleLaptop[!is.redundant(ruleLaptop)] #2 ruöes were found to be redundant
+summary(ruleLaptop)
+
+inspect(sort(ruleLaptop, decreasing = TRUE, by = "support")[1:15])
+inspect(sort(ruleLaptop, decreasing = TRUE, by = "confidence")[1:15])
+inspect(sort(ruleLaptop, decreasing = TRUE, by = "lift")[1:15])
+
+#subsetting rules with a where people are more likely to close their purchase + a Monitor
+ruleMonitors <- subset(rulesAll, subset = rhs %in% tempMonitors)
+
+#remove redundant rules
+ruleMonitors <- ruleMonitors[!is.redundant(ruleMonitors)] #all rules remained
+summary(ruleMonitors)
+
+#Sort by top 15 support/conf/lift
+inspect(sort(ruleMonitors, decreasing = TRUE, by = "support"))
+inspect(sort(ruleMonitors, decreasing = TRUE, by = "confidence"))
+inspect(sort(ruleMonitors, decreasing = TRUE, by = "lift"))
+
+#aggregate by cats
+transaction_list_byType <- aggregate(transaction_list, by = transaction_list@itemInfo$level1)
+
+#plot items frequency for categories
+itemFrequencyPlot(transaction_list_byType,
+                  topN = 10,
+                  main = 'Absolute Item Frequency Plot',
+                  type = "absolute",
+                  ylab = "Item Frequency (Absolute)")
+
+ruleByType <- apriori(transaction_list_byType, 
+                      parameter = list(sup = 0.005, 
+                                       conf = 0.4, 
+                                       minlen = 3, 
+                                       maxlen = 20))
+
+ruleByBWCats <- subset(ruleByType, subset = rhs %in% c("Desktop", 
+                                                       "Laptops", 
+                                                       "Monitors",
+                                                       "Accessories", 
+                                                       "Computer Tablets",
+                                                       "Printers"))
+
+ruleByBWCats <- subset(ruleByType, subset = rhs %in% c("Desktop") & lift > 1.5)
+
+#remove duplicates
+ruleByBWCats <- ruleByBWCats[!is.redundant(ruleByBWCats)] #5 duplicated were found
+summary(ruleByBWCats)
+
+#Sort by top 15 support/conf/lift to explore
+inspect(sort(ruleByBWCats, decreasing = TRUE, by = "support")[1:15])
+inspect(sort(ruleByBWCats, decreasing = TRUE, by = "confidence")[1:15])
+inspect(sort(ruleByBWCats, decreasing = TRUE, by = "lift")[1:15])
+
+
+#note to self: bad support and medium confidence, only lift is good. Will be very rare for the rules to happen
+```
+
+
+```{r}
+#for reproducibility
+sessionInfo()
+```

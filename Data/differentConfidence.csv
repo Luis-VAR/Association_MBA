@@ -1,4 +1,4 @@
-minConf,numRules,meanSupp,meanConf,meanLift
+minimum_confidence,number_rules,mean_support,mean_confidence,mean_lift
 0.2,287,0.019,0.33,1.82
 0.25,203,0.018,0.37,1.91
 0.3,154,0.018,0.4,1.94
